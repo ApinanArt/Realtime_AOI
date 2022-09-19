@@ -1,0 +1,116 @@
+﻿@implements IAsyncDisposable
+@page "/Modal"
+<div class="container-fluid">
+    <div class="modal-header p-3 border-bottom">
+        <h5 class="modal-title text-white">XY OFFSET</h5>
+    </div>
+    <div class="row mt-3" id="divModal" style="overflow-y :unset; height:90vh">
+        <div style="width:600px;" id="he">
+            <svg id="svg-chart-XYOFFSET"></svg>
+        </div>
+        <div id="showselete-XYOFFSET" class="col text-white ps-0 pe-0 me-1"></div>
+        <div id="OverSpecXY" class="col text-white ps-0 pe-0"></div>
+    </div>
+</div>
+
+
+@code {
+    [Inject]
+    private IConfiguration configuration { get; set; }
+    //setApitKey
+    string key { get; set; }
+    string key_value { get; set; }
+    string url { get; set; }
+    //Read_AOI
+    JArray setData = new JArray();
+    JObject getData = new JObject();
+    //setScript
+    public IJSObjectReference ModalChartXYOFFSET;
+    //getUrl
+    private UriBuilder uriBuilder { get; set; }
+    string lineSet { get; set; }
+    string location { get; set; }
+    protected override async Task OnInitializedAsync()
+    {
+
+
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("console.clear");
+        if (getUrl() == true)
+        {
+            setApiKey();
+            await SetLoad();
+        }
+    }
+    async Task SetLoad()
+    {
+
+        await setScript();
+        read_AOI();
+        await setHistogram();
+
+    }
+    void setApiKey()
+    {
+        key = configuration["Headers:key"];
+        key_value = configuration["Headers:value"];
+        url = configuration["Url"];
+    }
+    async Task setScript()
+    {
+        ModalChartXYOFFSET = await JS.InvokeAsync<IJSObjectReference>("import", "./ModalChartXYOFFSET.js");
+    }
+    async Task setHistogram()
+    {
+        var convertObj = JsonConvert.SerializeObject(setData);
+        var convertObjUcl_lcl = JsonConvert.SerializeObject(getData["ucl_lcl"]);
+        try
+        {
+            
+            await ModalChartXYOFFSET.InvokeVoidAsync("setoffset",convertObjUcl_lcl);
+            await ModalChartXYOFFSET.InvokeVoidAsync("setchart",convertObj);
+        }
+        catch
+        {
+
+        }
+    }
+    void read_AOI()
+    {
+        var bf = DateTime.Now;
+        //var jsonbody = new { station = "aoi_pre", line = "C1", location = "All" };
+        var jsonbody = new { station = "aoi_pre", line = lineSet, location =  location};
+        //getData = Tools.apiPost(url + "Aoi/OfferXY", key, key_value, jsonbody);
+        getData = Tools.apiPost(url + "Aoi/OfferXYShowAll", key, key_value, jsonbody);
+        setData = (JArray)getData["data"];
+        var af = DateTime.Now;
+        var totaltime = af - bf;
+        JS.InvokeVoidAsync("console.log", "(XY_Point_Modal)(CallApi)Aoi/OfferXY:::" + totaltime.TotalSeconds);
+    }
+    bool getUrl()
+    {
+        lineSet = GetQueryParm("line");
+        location = GetQueryParm("location");
+
+        return lineSet == "" && location == "" ? false : true;
+
+    }
+    string GetQueryParm(string parmName)
+    {
+        uriBuilder = new UriBuilder(MyNavigationManager.Uri);
+        var q = System.Web.HttpUtility.ParseQueryString(uriBuilder.Query);
+        return q[parmName] ?? "";
+    }
+    async ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        if (ModalChartXYOFFSET is not null)
+        {
+            await ModalChartXYOFFSET.DisposeAsync();
+
+        }
+
+    }
+
+}
